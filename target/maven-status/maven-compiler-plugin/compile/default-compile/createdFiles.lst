@@ -1,0 +1,5 @@
+cloud/officinaedisanto/heritage/filesservice/model/File.class
+cloud/officinaedisanto/heritage/filesservice/model/FormData.class
+cloud/officinaedisanto/heritage/filesservice/api/backoffice/FilesBOResource.class
+cloud/officinaedisanto/heritage/filesservice/model/BaseEntity.class
+cloud/officinaedisanto/heritage/filesservice/services/FilesService.class
