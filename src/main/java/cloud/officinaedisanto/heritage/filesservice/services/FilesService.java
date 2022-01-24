@@ -3,37 +3,30 @@ package cloud.officinaedisanto.heritage.filesservice.services;
 import cloud.officinaedisanto.heritage.filesservice.model.File;
 import com.blazebit.persistence.CriteriaBuilderFactory;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import software.amazon.awssdk.core.sync.RequestBody;
-import software.amazon.awssdk.core.sync.ResponseTransformer;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.persistence.EntityManager;
 import javax.transaction.Transactional;
 import javax.ws.rs.InternalServerErrorException;
 import javax.ws.rs.NotFoundException;
+import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 @ApplicationScoped
 @Transactional
 public class FilesService {
 
-    private final static String OBJECT_CLASS = "cloud.officinaedisanto.heritage.filesservice.model.File";
-
     private final EntityManager em;
     private final CriteriaBuilderFactory cbf;
-    private final S3Client s3Client;
 
-    @ConfigProperty(name = "bucket.name")
-    String bucketName;
+    @ConfigProperty(name = "storage.path")
+    String storagePath;
 
-    public FilesService(EntityManager em, CriteriaBuilderFactory cbf, S3Client s3Client) {
+    public FilesService(EntityManager em, CriteriaBuilderFactory cbf) {
         this.em = em;
         this.cbf = cbf;
-        this.s3Client = s3Client;
     }
 
     //Support methods
@@ -51,13 +44,10 @@ public class FilesService {
 
     public void get(long id, OutputStream outputStream) {
         var file = getFile(id);
-        var getObjectRequest = GetObjectRequest.builder()
-                .bucket(bucketName)
-                .key(file.getUuid().toString())
-                .build();
-        var getObjectResponse =
-                s3Client.getObject(getObjectRequest, ResponseTransformer.toOutputStream(outputStream));
-        if (!getObjectResponse.sdkHttpResponse().isSuccessful()) {
+        var filePath = Paths.get(storagePath, file.getUuid().toString());
+        try {
+            Files.copy(filePath, outputStream);
+        } catch (IOException e) {
             throw new InternalServerErrorException();
         }
     }
@@ -70,13 +60,10 @@ public class FilesService {
     }
 
     private void putObject(String key, String type, byte[] fileBytes) {
-        var putObjectRequest = PutObjectRequest.builder()
-                .bucket(bucketName)
-                .key(key)
-                .contentType(type)
-                .build();
-        var putObjectResponse = s3Client.putObject(putObjectRequest, RequestBody.fromBytes(fileBytes));
-        if (!putObjectResponse.sdkHttpResponse().isSuccessful()) {
+        var filePath = Paths.get(storagePath, key);
+        try {
+            Files.write(filePath, fileBytes);
+        } catch (IOException e) {
             throw new InternalServerErrorException();
         }
     }
@@ -92,12 +79,10 @@ public class FilesService {
 
     public void delete(long id) {
         var file = getFile(id);
-        var deleteObjectRequest = DeleteObjectRequest.builder()
-                .bucket(bucketName)
-                .key(file.getUuid().toString())
-                .build();
-        var deleteObjectResponse = s3Client.deleteObject(deleteObjectRequest);
-        if (!deleteObjectResponse.sdkHttpResponse().isSuccessful()) {
+        var filePath = Paths.get(storagePath, file.getUuid().toString());
+        try {
+            Files.deleteIfExists(filePath);
+        } catch (IOException e) {
             throw new InternalServerErrorException();
         }
         em.remove(file);
