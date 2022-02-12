@@ -64,6 +64,7 @@ public class FilesService {
         try {
             Files.write(filePath, fileBytes);
         } catch (IOException e) {
+            e.printStackTrace();
             throw new InternalServerErrorException();
         }
     }
